@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/////////////////////////////////////////
+//功能描述：用来清除ArcGIS Server Admin 缓存
+//三个参数分别为：
+//admin地址:server 的admin地址，如  'http://192.168.1.1/ArcGIS/rest/admin', 其中ip地址改为自己的服务器地址
+//admin用户名：server的管理员账号名，如 'Administrator'
+//admin密码：server的管理员账号对应的密码，如 'password'
+//作者：xzdbd
+//
+-->
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" 
+			   minWidth="955" minHeight="600">	
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.HTTPService;
+			
+			/**
+			 * 添加一条当前状态
+			 * 
+			 * */
+			private function addConditon(condition:String):void
+			{
+				conditionTxt.text += condition + "\n\n";
+			}
+			
+			/**
+			 * 程序核心代码起点
+			 * 
+			 * */
+			protected function clearBtn_clickHandler(event:MouseEvent):void
+			{
+				clearCache();
+			}
+			
+			private function clearCache():void
+			{
+				getToken(adminUrlTxt.text, userTxt.text, pwdTxt.text);
+			}
+			
+			/**
+			 * 获取ARCGIS SERVER REST AMIN TOKEN
+			 * 详见http://yourip/ArcGIS/rest/admin/generateToken
+			 * @param adminUrl REST接口admin地址
+			 * @param username REST接口用户名
+			 * @param password REST密码
+			 *
+			 * */
+			private function getToken(adminUrl:String, username:String, password:String):void
+			{
+				addConditon("开始清除cache过程");
+				var httpService:HTTPService = new HTTPService();
+				httpService.url = adminUrl+"/generateToken";
+				httpService.method="POST";
+				var param:Object = new Object();
+				param.username = username;
+				param.password = password;
+				param.ip = "";
+				param.referer="";
+				param.client = "requestip";
+				param.expiration = 60;
+				param.f="json";
+				httpService.addEventListener(ResultEvent.RESULT,OnResultGetToken);
+				httpService.addEventListener(FaultEvent.FAULT,OnFaultGetToken);
+				httpService.send(param);
+				addConditon("开始获取Token");
+			}
+			
+			/**
+			 * token获取成功
+			 * 
+			 * */
+			private function OnResultGetToken(event:ResultEvent):void
+			{
+				var jsonObj:Object = new Object(); 				 
+				jsonObj = JSON.parse(event.result.toString());
+				addConditon("获取Token成功, " + jsonObj.token);
+				Clear(adminUrlTxt.text, jsonObj.token);
+				addConditon("发送清除缓存命令");
+			}
+			
+			/**
+			 * token获取失败
+			 * 
+			 * */
+			private function OnFaultGetToken(event:FaultEvent):void
+			{
+				addConditon("获取token失败，" + event.fault.toString());
+			}
+			
+			/**
+			 * token获取之后，发送清除缓存命令
+			 * 
+			 * */
+			private function Clear(adminUrl:String ,token:String):void
+			{
+				var httpService:HTTPService = new HTTPService();
+				httpService.url = adminUrl+"/cache/clear?token="+token+"&f=json";
+				httpService.addEventListener(ResultEvent.RESULT,OnResultClear);
+				httpService.addEventListener(FaultEvent.FAULT,OnFaultClear);
+				httpService.send();
+			}
+			
+			/**
+			 * 缓存清除成功
+			 * 
+			 * */
+			private function OnResultClear(event:ResultEvent):void
+			{
+				var jsonObj:Object = new Object(); 
+				jsonObj = JSON.parse(event.result.toString());  
+				if(jsonObj.success == true)
+				{
+					addConditon("清除admin缓存成功");
+				}
+				else
+				{
+					addConditon("清除admin缓存失败，请核对缓存地址、用户名和密码是否正确");
+				}
+			}
+			
+			/**
+			 * 缓存清除失败
+			 * 
+			 * */
+			private function OnFaultClear(event:FaultEvent):void
+			{
+				addConditon("发送清除命令失败， " + event.fault.toString());
+			}
+			
+			/**
+			 * 重置
+			 * 
+			 * */
+			protected function reset_clickHandler(event:MouseEvent):void
+			{
+				conditionTxt.text = "";
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Style>
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";
+		
+		s|Label{
+			fontFamily: "微软雅黑";
+			fontSize: 14;
+		}
+		
+		s|TextInput{
+			fontFamily: "微软雅黑";
+			fontSize: 14;
+		}
+		
+		s|TextArea{
+			fontFamily: "微软雅黑";
+			fontSize: 14;
+		}
+		
+	</fx:Style>
+	
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout gap="5" 
+						  paddingTop="20" paddingLeft="20" />
+	</s:layout>
+	<s:VGroup gap="5">
+		<s:Label text="程序功能：清除ArcGIS Server Admin缓存" fontSize="18"/>
+	</s:VGroup>
+	<s:Spacer height="10"/>
+	<s:HGroup gap="5">
+		<s:Label text="服务器缓存地址:" width="120"/>
+		<s:TextInput id="adminUrlTxt" 
+					 prompt="http://192.168.1.1/ArcGIS/rest/admin"
+					 width="300"/>
+	</s:HGroup>
+	<s:HGroup gap="5">
+		<s:Label text="admin用户名:" width="120"/>
+		<s:TextInput id="userTxt" />
+	</s:HGroup>
+	<s:HGroup gap="5">
+		<s:Label text="admin用户密码:" width="120"/>
+		<s:TextInput id="pwdTxt" />
+	</s:HGroup>
+	<s:HGroup gap="5">
+		<s:Button id="clearBtn" label="清除缓存" 
+				  click="clearBtn_clickHandler(event)"/>
+		<s:Button id="reset" label="重置"
+				  click="reset_clickHandler(event)"/>
+	</s:HGroup>
+	<s:TextArea id="conditionTxt" 
+				width="600" height="300"
+				editable="false"/>
+</s:Application>
